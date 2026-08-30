@@ -30,22 +30,39 @@ const RECT SCREEN = set_screen_bounds();
 const RECT TERMINAL = set_terminal_bounds(SCREEN);
 
 // Function Prototypes
-LRESULT CALLBACK window_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK main_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK terminal_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 // Main Function
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
-    // Window
+    // Main Window Class
+    HBRUSH main_brush = CreateSolidBrush(RGB(0, 0, 0));
+
     WNDCLASS window_class = { };
-    window_class.lpfnWndProc = window_proc;
+    window_class.lpfnWndProc = main_proc;
     window_class.hInstance = hInstance;
     window_class.lpszClassName = L"MainWindowClass";
     window_class.hCursor = LoadCursor(NULL, IDC_ARROW);
-    window_class.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+    window_class.hbrBackground = main_brush;
     
-    HWND hwnd_window = CreateWindowEx(
+    if (!RegisterClass(&window_class)) return 0;
+
+    // Terminal Window Class
+    HBRUSH terminal_brush = CreateSolidBrush(RGB(255, 255, 255));
+
+    WNDCLASS terminal_class = { };
+    terminal_class.lpfnWndProc = terminal_proc;
+    terminal_class.hInstance = hInstance;
+    terminal_class.lpszClassName = L"TerminalWindowClass";
+    terminal_class.hCursor = LoadCursor(NULL, IDC_ARROW);
+    terminal_class.hbrBackground = terminal_brush;
+
+    if (!RegisterClass(&terminal_class)) return 0;
+
+    // Main Windwo Instance
+    HWND hwnd_main = CreateWindowEx(
         WS_EX_LAYERED,                              // optional window styles
-        L"Blank Window Class",                      // window class name
+        L"MainWindowClass",                         // window class name
         L"Window",                                  // window title
         WS_POPUP | WS_VISIBLE,                      // window style
         SCREEN.left,                                // x
@@ -58,29 +75,19 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         NULL                                        // additiona app data
     );
 
-    if (hwnd_window == NULL) return 0;
+    if (hwnd_main == NULL) return 0;
 
-    // Background Tranparent Effect
-    SetLayeredWindowAttributes(hwnd_window, 0, 200, LWA_ALPHA);
-
-    // Terminal Window
-    WNDCLASS terminal_class = { };
-    terminal_class.lpfnWndProc = terminal_proc;
-    window_class.hInstance = hInstance;
-    window_class.lpszClassName = L"MainWindowClass";
-    window_class.hCursor = LoadCursor(NULL, IDC_ARROW);
-    window_class.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
-
+    // Terminal Window Instance
     HWND hwnd_terminal = CreateWindowEx(
         WS_EX_LAYERED,                              // optional window styles
-        CLASS_NAME,                                 // window class name
-        L"Terminal",                                // window title
+        L"TerminalWindowClass",                     // window class name
+        NULL,                                       // window title
         WS_POPUP | WS_VISIBLE,                      // window style
-        SCREEN.left,                                // x
-        SCREEN.top,                                 // y
-        SCREEN.right - SCREEN.left,                 // width
-        SCREEN.bottom - SCREEN.top,                 // height
-        NULL,                                       // parent window    
+        TERMINAL.left,                              // x
+        TERMINAL.top,                               // y
+        TERMINAL.right - TERMINAL.left,             // width
+        TERMINAL.bottom - TERMINAL.top,             // height
+        hwnd_main,                                  // parent window    
         NULL,                                       // menu
         hInstance,                                  // instance handle
         NULL                                        // additiona app data
@@ -88,10 +95,15 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
     if (hwnd_terminal == NULL) return 0;
 
-    // Display All Windows
-    ShowWindow(hwnd, nCmdShow);
+    // Background Tranparent Effect
+    SetLayeredWindowAttributes(hwnd_main, 0, 125, LWA_ALPHA);
+    SetLayeredWindowAttributes(hwnd_terminal, 0, 175, LWA_ALPHA);
 
-    UpdateWindow(hwnd);
+    // Display All Windows
+    ShowWindow(hwnd_main, nCmdShow);
+    UpdateWindow(hwnd_main);
+    ShowWindow(hwnd_terminal, nCmdShow);
+    UpdateWindow(hwnd_terminal);
 
     // Message Loop
     MSG msg = { };
@@ -104,44 +116,20 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 }
 
 // Function Definitions ----------------------------------------------------------------------------
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK main_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
-        case WM_CREATE: {
-            // Enable Blur Effect For Full Window
-            int backdropType = DWMSBT_TRANSIENTBACKDROP;
-            DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdropType, sizeof(backdropType));
-
-            // Restrict Blur Effect For Terminal Only
-            HRGN hRgn = CreateRectRgn(TERMINAL.left, TERMINAL.top, TERMINAL.right, TERMINAL.bottom);
-            SetWindowRgn(hwnd, hRgn, TRUE);
-
-            return 0;
-        }
-        case WM_PAINT: {
-            PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hwnd, &ps);
-
-            // Set Drawing Elements
-            HPEN hPen = CreatePen(PS_SOLID, 1, RGB(255, 255, 255));
-            HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-            HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
-
-            // Terminal Border
-            Rectangle(hdc, TERMINAL.left, TERMINAL.top, TERMINAL.right, TERMINAL.bottom);
-
-            // Clean Drawing Elements
-            SelectObject(hdc, hOldBrush);
-            SelectObject(hdc, hOldPen);
-            DeleteObject(hPen);
-
-            EndPaint(hwnd, &ps);
-            return 0;
-        }
         case WM_DESTROY:
-            PostQuitMessage(0); // terminate message loop
+            PostQuitMessage(0);
             return 0;
 
         default:
-            return DefWindowProc(hwnd, uMsg, wParam, lParam); // default message handling
+            return DefWindowProc(hwnd, uMsg, wParam, lParam);
+    }
+}
+
+LRESULT CALLBACK terminal_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    switch (uMsg) {
+        default:
+            return DefWindowProc(hwnd, uMsg, wParam, lParam);
     }
 }

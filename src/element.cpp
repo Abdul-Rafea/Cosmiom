@@ -18,12 +18,13 @@ RECT set_screen_bounds() {
 
 RECT set_terminal_bounds(RECT screen) {
 	RECT terminal = {};
-	const int margin = 20;
+	const int margin_x = 50;
+	const int margin_y = 10;
 
-	terminal.left = screen.left + margin;
+	terminal.left = screen.left + margin_x;
 	terminal.top = screen.bottom - 400;
-	terminal.right = screen.right - margin;
-	terminal.bottom = screen.bottom - margin;
+	terminal.right = screen.right - margin_x;
+	terminal.bottom = screen.bottom - margin_y;
 
 	return terminal;
 }
